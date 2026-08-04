@@ -1,13 +1,54 @@
-# mcp-eia
+# EIA — U.S. Energy Information Administration
 
-EIA MCP — US Energy Information Administration API v2
+The official US energy data: petroleum, natural gas, electricity, coal, renewables, nuclear, total energy, international energy. Production, consumption, prices, reserves, imports/exports — at national, state, and (for electricity) plant level. Free, requires a free API key.
 
-Part of [Pipeworx](https://pipeworx.io) — an MCP gateway connecting AI agents to 673+ live data sources.
+Part of [Pipeworx](https://pipeworx.io) — an MCP gateway connecting AI agents to 1394+ live data sources.
 
-## Tools
+## Why this matters for AI agents
 
-| Tool | Description |
-|------|-------------|
+For energy questions — "what's the price of natural gas?", "how much electricity comes from solar?", "are gasoline prices rising?" — EIA is the source. Government-grade data, no commercial markup. Pair with [FRED](/docs/reference/fred) for energy-related macro indicators and [NOAA](/docs/reference/noaa) for energy-relevant weather context.
+
+Common flows:
+
+- **Spot prices.** "What's WTI crude trading at?" → crude oil spot price series.
+- **State electricity mix.** "What % of California electricity is solar?" → state-level generation by source.
+- **Retail gasoline.** "Average price for a gallon last week?" → weekly retail prices.
+- **Natural gas storage.** "How much working gas in storage?" → weekly EIA-915 reports.
+
+## Auth
+
+EIA Open Data API requires a free key from https://www.eia.gov/opendata/register.php. Pass via `_apiKey`. Generous rate limits.
+
+## Major datasets
+
+| Dataset | Cadence | Use |
+|---|---|---|
+| Petroleum & Other Liquids | Weekly / monthly | Crude oil prices, gasoline, distillates, OPEC |
+| Natural Gas | Weekly storage, monthly production | Pricing, storage, consumption |
+| Electricity | Monthly | Generation by fuel, retail rates by state |
+| Coal | Monthly / annual | Mining, prices, exports |
+| Renewable & Alternative Fuels | Monthly | Solar, wind, biofuels, electric vehicle charging |
+| Total Energy / Annual Energy Outlook | Annual | Long-term forecasts |
+
+## Series IDs
+
+EIA series follow `dataset_id.frequency.region.product` patterns. Examples:
+
+- `PET.RWTC.D` — WTI crude, daily
+- `NG.RNGC1.D` — Natural gas Henry Hub, daily
+- `ELEC.GEN.SUN-CA-99.M` — California solar generation, monthly
+- `PET.EMM_EPMR_PTE_NUS_DPG.W` — US weekly average regular gasoline price
+
+Use the `eia_search` tool to find IDs rather than constructing them manually.
+
+## Common pitfalls
+
+- **Reporting lag varies.** Petroleum prices update weekly with ~3-day lag. Electricity generation is monthly with ~2-month lag. Don't assume "current" matches across datasets.
+- **Heat content vs volume.** Natural gas reported in BCF (billion cubic feet), MMcf, and energy units (BTU, MMBtu). Conversions matter for cross-fuel comparison.
+- **Net vs gross generation.** Power-plant generation has subtle definitions. "Net" subtracts plant-internal use. EIA mostly publishes net. Don't double-count.
+- **State electricity by primary mover.** EIA's state-level mix is by primary mover (steam turbine, combined cycle, etc.) AND fuel — same plant can have multiple categorizations. Aggregate to the level your question requires.
+- **Forecasts are scenarios.** AEO (Annual Energy Outlook) is a reference-case projection plus side-cases. Don't treat reference case as "what will happen."
+- **No market-real-time prices.** EIA spot prices are official end-of-day; for intra-day market prices you need a commercial feed, not EIA.
 
 ## Quick Start
 
@@ -23,7 +64,7 @@ Add to your MCP client (Claude Desktop, Cursor, Windsurf, etc.):
 }
 ```
 
-Or connect to the full Pipeworx gateway for access to all 673+ data sources:
+Or connect to the full Pipeworx gateway for access to all 1394+ data sources:
 
 ```json
 {
@@ -47,7 +88,7 @@ The gateway picks the right tool and fills the arguments automatically.
 
 ## More
 
-- [All tools and guides](https://github.com/pipeworx-io/examples)
+- [Docs and guides](https://pipeworx.io/docs)
 - [pipeworx.io](https://pipeworx.io)
 
 ## License
