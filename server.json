@@ -1,9 +1,9 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.pipeworx-io/eia",
-  "title": "eia",
+  "title": "Eia",
   "description": "EIA MCP — US Energy Information Administration API v2",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "websiteUrl": "https://pipeworx.io/packs/eia",
   "repository": {
     "url": "https://github.com/pipeworx-io/mcp-eia",
