@@ -2,7 +2,7 @@
 
 The official US energy data: petroleum, natural gas, electricity, coal, renewables, nuclear, total energy, international energy. Production, consumption, prices, reserves, imports/exports — at national, state, and (for electricity) plant level. Free, requires a free API key.
 
-Part of [Pipeworx](https://pipeworx.io) — an MCP gateway connecting AI agents to 1683+ live data sources.
+Part of [Pipeworx](https://pipeworx.io) — an MCP gateway connecting AI agents to 1815+ live data sources. This is an independent, unofficial integration — not affiliated with, endorsed by, or published by the upstream provider.
 
 ## Why this matters for AI agents
 
@@ -12,7 +12,7 @@ Common flows:
 
 - **Spot prices.** "What's WTI crude trading at?" → crude oil spot price series.
 - **State electricity mix.** "What % of California electricity is solar?" → state-level generation by source.
-- **Retail gasoline.** "Average price for a gallon last week?" → weekly retail prices.
+- **Retail gasoline and diesel.** "What is the average US price for regular gasoline?" → `us_fuel_price` — the weekly US average pump price from EIA's Weekly Retail Gasoline and Diesel Prices survey, for the grade asked (regular by default — the national headline figure — or midgrade, premium, all grades, or diesel). `eia_petroleum` with product "gasoline" now honours the same `grade` and defaults to the US average rather than every grade in every region mixed together.
 - **Natural gas storage.** "How much working gas in storage?" → weekly EIA-915 reports.
 
 ## Auth
@@ -94,7 +94,7 @@ directly, instead of just this one's:
 }
 ```
 
-Both URLs reach the same gateway and the same 1683+ data sources. The
+Both URLs reach the same gateway and the same 1815+ data sources. The
 only difference is which pack's tools are listed **directly**; `ask_pipeworx`
 reaches all of them from either one.
 

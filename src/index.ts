@@ -681,6 +681,7 @@ function collapse(s: string): string {
  * Tools:
  * - eia_series: get any EIA time series by route path
  * - eia_petroleum: petroleum prices and supply data
+ * - us_fuel_price: weekly US retail pump price by grade (regular/midgrade/premium/diesel)
  * - eia_natural_gas: natural gas prices, production, and storage
  * - eia_electricity: electricity generation and retail prices
  * - eia_ethanol: ethanol production and stocks (key for agriculture)
@@ -792,7 +793,10 @@ function formatEiaData(data: EiaResponse) {
 // ── Route lookup tables ──────────────────────────────────────────────
 
 const PETROLEUM_ROUTES: Record<string, { route: string; facets?: Record<string, string> }> = {
-  gasoline: { route: 'petroleum/pri/gnd', facets: { product: 'EPM0' } },
+  // Retail pump prices (fleet #3153). `product` here is the DEFAULT; for
+  // gasoline the grade picks it (GASOLINE_GRADES), and both default to the
+  // US national average (duoarea NUS) rather than every region at once.
+  gasoline: { route: 'petroleum/pri/gnd', facets: { product: 'EPMR' } },
   diesel: { route: 'petroleum/pri/gnd', facets: { product: 'EPD2D' } },
   crude: { route: 'petroleum/pri/spt', facets: { product: 'EPCWTI' } },
   stocks: { route: 'petroleum/stoc/wstk' },
@@ -800,6 +804,50 @@ const PETROLEUM_ROUTES: Record<string, { route: string; facets?: Record<string, 
   production: { route: 'petroleum/crd/crpdn' },
   imports: { route: 'petroleum/mov/imp' },
 };
+
+/**
+ * Gasoline grade -> EIA product facet on petroleum/pri/gnd (fleet #3153).
+ *
+ * The pack used to send EPM0 ("Total Gasoline" = all grades) with no area, so
+ * "what is the average US price for REGULAR gasoline" came back as the
+ * all-grades figure ($4.471 for the week of 2026-10-12) in a 24-row mix of
+ * PADDs and states, not the regular figure ($4.331 — the national headline,
+ * and FRED GASREGW). Codes verified against EIA's own facet list for the route
+ * on 2026-10-15: EPMR Regular, EPMM Midgrade, EPMP Premium, EPM0 Total.
+ * "All formulations" is the default for every grade (conventional and
+ * reformulated together), which is what the national headline means.
+ */
+export const GASOLINE_GRADES: Record<string, string> = {
+  regular: 'EPMR',
+  midgrade: 'EPMM',
+  premium: 'EPMP',
+  all: 'EPM0',
+};
+const GRADE_ALIASES: Record<string, string> = {
+  unleaded: 'regular', 'regular unleaded': 'regular', mid: 'midgrade', 'mid-grade': 'midgrade', plus: 'midgrade',
+  super: 'premium', 'all grades': 'all', total: 'all',
+};
+/** Area for retail prices: the US average unless the caller names one. */
+const US_AREA = 'NUS';
+
+/** Resolve a caller's grade to an EIA product code, or throw naming the valid ones. */
+export function gasolineProductCode(grade: unknown): { grade: string; code: string } {
+  const raw = typeof grade === 'string' && grade.trim() ? grade.trim().toLowerCase() : 'regular';
+  const g = GRADE_ALIASES[raw] ?? raw;
+  const code = GASOLINE_GRADES[g];
+  if (!code) {
+    throw new Error(`Unknown gasoline grade "${String(grade)}". Use one of: ${Object.keys(GASOLINE_GRADES).join(', ')} (regular is the national headline price).`);
+  }
+  return { grade: g, code };
+}
+
+/** Area facet for a retail price query: US by default, "all" for every region, else an EIA duoarea code (e.g. "R10" East Coast, "SCA" California). */
+export function retailAreaCode(area: unknown): string | null {
+  const raw = typeof area === 'string' && area.trim() ? area.trim() : 'US';
+  if (/^(us|usa|u\.s\.|united states|national|nus)$/i.test(raw)) return US_AREA;
+  if (/^all$/i.test(raw)) return null;
+  return raw.toUpperCase();
+}
 
 const NATGAS_ROUTES: Record<string, { route: string }> = {
   prices: { route: 'natural-gas/pri/sum' },
@@ -869,13 +917,58 @@ const tools: McpToolExport['tools'] = [
         _apiKey: { type: 'string', description: 'EIA API key' },
         product: {
           type: 'string',
-          description: 'Product type: "gasoline", "diesel", "crude", "stocks", "supply", "production", "imports"',
+          description: 'Product type: "gasoline" (retail pump price), "diesel" (retail pump price), "crude" (WTI spot), "stocks", "supply", "production", "imports"',
         },
-        frequency: { type: 'string', description: 'Frequency: "weekly", "monthly", "annual" (optional, defaults vary by product)' },
+        grade: {
+          type: 'string',
+          enum: ['regular', 'midgrade', 'premium', 'all'],
+          description: 'Gasoline grade, for product "gasoline" only: "regular" (default — the national headline price), "midgrade", "premium", or "all" (all grades combined).',
+        },
+        area: {
+          type: 'string',
+          description: 'Retail prices only: "US" (default, national average), "all" (every region EIA reports), or an EIA area code such as "R10" (East Coast) or "SCA" (California).',
+        },
+        frequency: { type: 'string', description: 'Frequency: "weekly", "monthly", "annual" (optional; retail prices default to weekly)' },
         start: { type: 'string', description: 'Start date (optional)' },
         end: { type: 'string', description: 'End date (optional)' },
       },
       required: ['_apiKey', 'product'],
+    },
+  },
+  {
+    // fleet #3153: named for the question, like fuel-prices' fuel_price is for
+    // Europe. "What is the average US price for regular gasoline" never reached
+    // EIA by retrieval — eia_petroleum ranked 129th by base cosine on the
+    // benchmark question, because its description is about "petroleum time
+    // series" — and since 2026-10-15 the router answered it from a FUTURES
+    // tool. A dedicated tool whose description is the caller's words ranks 1st
+    // on every retail phrasing measured, without touching eia_petroleum's
+    // description (its embedding, and the frozen-eval labels that depend on
+    // it — crude inventories, WTI — are unchanged: 0 of 221 labels moved).
+    name: 'us_fuel_price',
+    description:
+      'US gas station prices: the weekly national average retail pump price per gallon of regular, midgrade or premium gasoline, or diesel, from the U.S. Energy Inform' +
+      'ation Administration\'s Weekly Retail Gasoline and Diesel Prices survey. Answers "current average US gas price", "national average price of regular unleaded", "h' +
+      'ow much is a gallon of gas", "diesel price at the pump". Pass fuel "gasoline" with grade (regular is the default, the national headline figure) or fuel "diesel"' +
+      '; area defaults to the US average. Returns the latest week first with the series name, so the grade and area are stated in every answer.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        _apiKey: { type: 'string', description: 'EIA API key' },
+        fuel: { type: 'string', enum: ['gasoline', 'diesel'], description: 'Fuel: "gasoline" (default) or "diesel".' },
+        grade: {
+          type: 'string',
+          enum: ['regular', 'midgrade', 'premium', 'all'],
+          description: 'Gasoline grade: "regular" (default — the national headline price), "midgrade", "premium", or "all" (all grades combined). Ignored for diesel.',
+        },
+        area: {
+          type: 'string',
+          description: '"US" (default, national average), "all" (every region EIA reports), or an EIA area code such as "R10" (East Coast) or "SCA" (California).',
+        },
+        start: { type: 'string', description: 'Earliest week to include, YYYY-MM-DD (optional; default the most recent 24 weeks).' },
+        end: { type: 'string', description: 'Latest week to include, YYYY-MM-DD (optional).' },
+      },
+      required: ['_apiKey'],
     },
   },
   {
@@ -951,6 +1044,13 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<un
       return eiaSeries(key, args);
     case 'eia_petroleum':
       return eiaPetroleum(key, args);
+    case 'us_fuel_price': {
+      const fuel = typeof args.fuel === 'string' && args.fuel.trim() ? args.fuel.trim().toLowerCase() : 'gasoline';
+      if (fuel !== 'gasoline' && fuel !== 'diesel') {
+        throw new Error(`Unknown fuel "${String(args.fuel)}". Use "gasoline" or "diesel".`);
+      }
+      return eiaPetroleum(key, { ...args, product: fuel, frequency: 'weekly' });
+    }
     case 'eia_natural_gas':
       return eiaNaturalGas(key, args);
     case 'eia_electricity':
@@ -994,16 +1094,41 @@ async function eiaPetroleum(apiKey: string, args: Record<string, unknown>) {
   if (args.end) params.end = args.end as string;
   params.length = '24';
 
-  if (config.facets) {
-    for (const [k, v] of Object.entries(config.facets)) {
-      params[`facets[${k}][]`] = v;
+  const facets: Record<string, string> = { ...(config.facets ?? {}) };
+  // Retail pump prices (fleet #3153): the grade the question asked for, the
+  // US average by default, weekly by default — the shape of the national
+  // headline number rather than every grade in every region mixed together.
+  const retail = product === 'gasoline' || product === 'diesel';
+  let grade: string | undefined;
+  let area: string | null = null;
+  if (retail) {
+    if (product === 'gasoline') {
+      const g = gasolineProductCode(args.grade);
+      grade = g.grade;
+      facets.product = g.code;
     }
+    area = retailAreaCode(args.area);
+    if (area) facets.duoarea = area;
+    if (!args.frequency) params.frequency = 'weekly';
+  }
+  for (const [k, v] of Object.entries(facets)) {
+    params[`facets[${k}][]`] = v;
   }
 
   const data = await eiaGet(apiKey, config.route, params);
+  const formatted = formatEiaData(data as EiaResponse);
+  const first = formatted.data[0];
   return {
     product,
-    ...formatEiaData(data as EiaResponse),
+    ...(retail ? {
+      ...(grade ? { grade } : {}),
+      area: area ?? 'all',
+      latest: first
+        ? { period: first.period, value: first.value, units: first.units, series: first.description, area: first.area }
+        : null,
+      source: 'U.S. Energy Information Administration, Weekly Retail Gasoline and Diesel Prices',
+    } : {}),
+    ...formatted,
   };
 }
 
