@@ -1,6 +1,6 @@
 {
   "name": "@pipeworx/mcp-eia",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "EIA MCP — US Energy Information Administration API v2",
   "type": "module",
   "main": "src/index.ts",
@@ -26,7 +26,7 @@
     "@cloudflare/workers-types": "^4.20260405.1"
   },
   "pipeworx": {
-    "sourceHash": "v1-fd0bff35b57fcffd1945ca6da6285c3dd89ec068a26ecf6d0b1e66f85c1a5fdf",
-    "sourceCommit": "5749f83c0ea115fab4c0c0ef04b66b05f2507d67"
+    "sourceHash": "v1-eeebbeb90844e400b1a95449f35a1fcf2ce8bbd2bfb92839b596d4e063eaabe3",
+    "sourceCommit": "29fb434ca65fe0f61191f19c3502f583f5fb99d7"
   }
 }
