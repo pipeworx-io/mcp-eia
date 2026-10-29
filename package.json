@@ -1,12 +1,20 @@
 {
   "name": "@pipeworx/mcp-eia",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "EIA MCP — US Energy Information Administration API v2",
   "type": "module",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./tools.json": "./tools.json",
+    "./package.json": "./package.json"
+  },
   "bin": {
     "mcp-eia": "bin/cli.js"
+  },
+  "files": ["bin/", "lib/", "tools.json", "server.json"],
+  "engines": {
+    "node": ">=18"
   },
   "keywords": ["mcp", "mcp-server", "model-context-protocol", "pipeworx", "eia"],
   "license": "MIT",
@@ -14,19 +22,12 @@
     "type": "git",
     "url": "git+https://github.com/pipeworx-io/mcp-eia.git"
   },
-  "scripts": {
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
-    "tsx": "^4.19.0"
-  },
-  "devDependencies": {
-    "typescript": "^5.9.3",
-    "@cloudflare/workers-types": "^4.20260405.1"
-  },
+  "mcpName": "io.github.pipeworx-io/eia",
   "pipeworx": {
-    "sourceHash": "v1-eeebbeb90844e400b1a95449f35a1fcf2ce8bbd2bfb92839b596d4e063eaabe3",
-    "sourceCommit": "29fb434ca65fe0f61191f19c3502f583f5fb99d7"
+    "mode": "gateway",
+    "slug": "eia",
+    "gatewaySlug": "eia",
+    "sourceHash": "v1-d001eff7cf6e99379ff1b948d6f61d582cb06037d0500ecd2ccbb5f55d741f7f",
+    "sourceCommit": "bb047243cf27f32453103de186b8e6a8b6a1ce79"
   }
 }
